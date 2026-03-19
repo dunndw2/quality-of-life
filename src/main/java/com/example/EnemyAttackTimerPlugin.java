@@ -8,11 +8,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.inject.Inject;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.AnimationID;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
-import net.runelite.api.NPCComposition;
 import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.NpcDespawned;
@@ -21,8 +19,9 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 @PluginDescriptor(
 	name = "Enemy Attack Timer",
 	description = "Shows a visual tick overlay of enemy attack timers when in combat",
@@ -30,6 +29,8 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class EnemyAttackTimerPlugin extends Plugin
 {
+	private static final Logger log = LoggerFactory.getLogger(EnemyAttackTimerPlugin.class);
+
 	/**
 	 * Palette of visually distinct colors for distinguishing simultaneous enemies.
 	 * Avoids red/yellow which are reserved for the danger state in the overlay.
@@ -150,17 +151,7 @@ public class EnemyAttackTimerPlugin extends Plugin
 			return tableSpeed;
 		}
 
-		// Fall back to NPCComposition data
-		NPCComposition composition = npc.getComposition();
-		if (composition != null)
-		{
-			int speed = composition.getAttackSpeed();
-			if (speed > 0)
-			{
-				return speed;
-			}
-		}
-
+		// Fall back to user-configured default
 		return config.defaultAttackSpeed();
 	}
 
