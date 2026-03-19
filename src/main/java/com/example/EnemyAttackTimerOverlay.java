@@ -21,9 +21,11 @@ class EnemyAttackTimerOverlay extends Overlay
 	private static final int Z_OFFSET_TEXT = 40;
 	private static final int Z_OFFSET_BAR = 60;
 
-	private static final Color COLOR_SAFE = Color.GREEN;
-	private static final Color COLOR_CAUTION = Color.YELLOW;
+	/** Overrides the NPC color when an attack is imminent (≤1 tick). */
 	private static final Color COLOR_DANGER = Color.RED;
+	/** Overrides the NPC color when an attack is close (2 ticks). */
+	private static final Color COLOR_CAUTION = Color.YELLOW;
+
 	private static final Color COLOR_BAR_BG = new Color(0, 0, 0, 180);
 	private static final Color COLOR_BAR_BORDER = new Color(100, 100, 100, 200);
 
@@ -61,23 +63,24 @@ class EnemyAttackTimerOverlay extends Overlay
 				continue;
 			}
 
+			Color npcColor = plugin.getNpcColor(npc);
 			int logicalHeight = npc.getLogicalHeight();
 
 			if (config.showProgressBar())
 			{
-				renderProgressBar(graphics, localPoint, ticks, maxTicks, logicalHeight);
+				renderProgressBar(graphics, localPoint, ticks, maxTicks, npcColor, logicalHeight);
 			}
 
 			if (config.showTickCount())
 			{
-				renderTickCount(graphics, localPoint, ticks, logicalHeight);
+				renderTickCount(graphics, localPoint, ticks, npcColor, logicalHeight);
 			}
 		}
 
 		return null;
 	}
 
-	private void renderTickCount(Graphics2D graphics, LocalPoint localPoint, int ticks, int logicalHeight)
+	private void renderTickCount(Graphics2D graphics, LocalPoint localPoint, int ticks, Color npcColor, int logicalHeight)
 	{
 		String text = String.valueOf(Math.max(0, ticks));
 		net.runelite.api.Point point = Perspective.getCanvasTextLocation(
@@ -88,10 +91,10 @@ class EnemyAttackTimerOverlay extends Overlay
 			return;
 		}
 
-		OverlayUtil.renderTextLocation(graphics, point, text, getTickColor(ticks));
+		OverlayUtil.renderTextLocation(graphics, point, text, getDisplayColor(ticks, npcColor));
 	}
 
-	private void renderProgressBar(Graphics2D graphics, LocalPoint localPoint, int ticks, int maxTicks, int logicalHeight)
+	private void renderProgressBar(Graphics2D graphics, LocalPoint localPoint, int ticks, int maxTicks, Color npcColor, int logicalHeight)
 	{
 		net.runelite.api.Point point = Perspective.getCanvasTextLocation(
 			client, graphics, localPoint, "", logicalHeight + Z_OFFSET_BAR);
@@ -112,15 +115,20 @@ class EnemyAttackTimerOverlay extends Overlay
 		float progress = (float) Math.max(0, ticks) / maxTicks;
 		int filledWidth = Math.round(BAR_WIDTH * progress);
 
-		graphics.setColor(getTickColor(ticks));
+		graphics.setColor(getDisplayColor(ticks, npcColor));
 		graphics.fillRect(x, y, filledWidth, BAR_HEIGHT);
 
-		// Border
-		graphics.setColor(COLOR_BAR_BORDER);
+		// Border — always drawn in the NPC's assigned color for identification
+		graphics.setColor(npcColor.darker());
 		graphics.drawRect(x, y, BAR_WIDTH, BAR_HEIGHT);
 	}
 
-	private Color getTickColor(int ticks)
+	/**
+	 * Returns the color to use for a given tick count.
+	 * Danger/caution states override the NPC's assigned color so urgent
+	 * attacks are always visually obvious regardless of NPC color assignment.
+	 */
+	private Color getDisplayColor(int ticks, Color npcColor)
 	{
 		if (ticks <= 1)
 		{
@@ -130,6 +138,6 @@ class EnemyAttackTimerOverlay extends Overlay
 		{
 			return COLOR_CAUTION;
 		}
-		return COLOR_SAFE;
+		return npcColor;
 	}
 }

@@ -1,8 +1,11 @@
 package com.example;
 
 import com.google.inject.Provides;
+import java.awt.Color;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +30,21 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class EnemyAttackTimerPlugin extends Plugin
 {
+	/**
+	 * Palette of visually distinct colors for distinguishing simultaneous enemies.
+	 * Avoids red/yellow which are reserved for the danger state in the overlay.
+	 */
+	static final List<Color> NPC_COLORS = Collections.unmodifiableList(Arrays.asList(
+		new Color(0, 200, 255),   // Cyan
+		new Color(255, 140, 0),   // Orange
+		new Color(200, 0, 255),   // Purple
+		new Color(0, 255, 128),   // Mint green
+		new Color(255, 80, 180),  // Hot pink
+		new Color(30, 144, 255),  // Dodger blue
+		new Color(255, 215, 0),   // Gold
+		new Color(127, 255, 212)  // Aquamarine
+	));
+
 	@Inject
 	private Client client;
 
@@ -45,6 +63,11 @@ public class EnemyAttackTimerPlugin extends Plugin
 	// NPC -> max ticks (attack speed) for progress bar calculation
 	private final Map<NPC, Integer> maxAttackSpeeds = new HashMap<>();
 
+	// NPC -> assigned display color for multi-enemy distinction
+	private final Map<NPC, Color> npcColors = new HashMap<>();
+
+	private int nextColorIndex = 0;
+
 	@Override
 	protected void startUp()
 	{
@@ -58,6 +81,8 @@ public class EnemyAttackTimerPlugin extends Plugin
 		overlayManager.remove(overlay);
 		attackTimers.clear();
 		maxAttackSpeeds.clear();
+		npcColors.clear();
+		nextColorIndex = 0;
 		log.debug("Enemy Attack Timer stopped");
 	}
 
@@ -73,8 +98,9 @@ public class EnemyAttackTimerPlugin extends Plugin
 			return entry.getValue() < 0 || !isValidTarget(npc);
 		});
 
-		// Keep maxAttackSpeeds in sync with attackTimers
+		// Keep auxiliary maps in sync with attackTimers
 		maxAttackSpeeds.keySet().retainAll(attackTimers.keySet());
+		npcColors.keySet().retainAll(attackTimers.keySet());
 	}
 
 	@Subscribe
@@ -96,6 +122,14 @@ public class EnemyAttackTimerPlugin extends Plugin
 		int attackSpeed = resolveAttackSpeed(npc);
 		attackTimers.put(npc, attackSpeed);
 		maxAttackSpeeds.put(npc, attackSpeed);
+
+		// Assign a color if this is the first time we see this NPC
+		npcColors.computeIfAbsent(npc, n ->
+		{
+			Color color = NPC_COLORS.get(nextColorIndex % NPC_COLORS.size());
+			nextColorIndex++;
+			return color;
+		});
 	}
 
 	@Subscribe
@@ -104,10 +138,19 @@ public class EnemyAttackTimerPlugin extends Plugin
 		NPC npc = event.getNpc();
 		attackTimers.remove(npc);
 		maxAttackSpeeds.remove(npc);
+		npcColors.remove(npc);
 	}
 
 	private int resolveAttackSpeed(NPC npc)
 	{
+		// Hardcoded table takes highest priority (most accurate)
+		int tableSpeed = NpcAttackSpeed.getAttackSpeed(npc.getId());
+		if (tableSpeed > 0)
+		{
+			return tableSpeed;
+		}
+
+		// Fall back to NPCComposition data
 		NPCComposition composition = npc.getComposition();
 		if (composition != null)
 		{
@@ -117,6 +160,7 @@ public class EnemyAttackTimerPlugin extends Plugin
 				return speed;
 			}
 		}
+
 		return config.defaultAttackSpeed();
 	}
 
@@ -133,6 +177,11 @@ public class EnemyAttackTimerPlugin extends Plugin
 	public Map<NPC, Integer> getMaxAttackSpeeds()
 	{
 		return Collections.unmodifiableMap(maxAttackSpeeds);
+	}
+
+	public Color getNpcColor(NPC npc)
+	{
+		return npcColors.getOrDefault(npc, Color.WHITE);
 	}
 
 	@Provides
