@@ -2,6 +2,7 @@ package com.example;
 
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Graphics2D;
 import java.util.Map;
 import javax.inject.Inject;
@@ -18,8 +19,6 @@ class EnemyAttackTimerOverlay extends Overlay
 {
 	private static final int BAR_WIDTH = 40;
 	private static final int BAR_HEIGHT = 6;
-	private static final int Z_OFFSET_TEXT = 40;
-	private static final int Z_OFFSET_BAR = 60;
 
 	/** Overrides the NPC color when an attack is imminent (≤1 tick). */
 	private static final Color COLOR_DANGER = Color.RED;
@@ -73,31 +72,34 @@ class EnemyAttackTimerOverlay extends Overlay
 
 			if (config.showTickCount())
 			{
-				renderTickCount(graphics, localPoint, ticks, npcColor, logicalHeight);
+				renderTickCount(graphics, localPoint, ticks, npcColor, logicalHeight, config.tickCountFontSize());
 			}
 		}
 
 		return null;
 	}
 
-	private void renderTickCount(Graphics2D graphics, LocalPoint localPoint, int ticks, Color npcColor, int logicalHeight)
+	private void renderTickCount(Graphics2D graphics, LocalPoint localPoint, int ticks, Color npcColor, int logicalHeight, int fontSize)
 	{
 		String text = String.valueOf(Math.max(0, ticks));
 		net.runelite.api.Point point = Perspective.getCanvasTextLocation(
-			client, graphics, localPoint, text, logicalHeight + Z_OFFSET_TEXT);
+			client, graphics, localPoint, text, logicalHeight + config.tickCountZOffset());
 
 		if (point == null)
 		{
 			return;
 		}
 
+		Font originalFont = graphics.getFont();
+		graphics.setFont(originalFont.deriveFont(Font.BOLD, fontSize));
 		OverlayUtil.renderTextLocation(graphics, point, text, getDisplayColor(ticks, npcColor));
+		graphics.setFont(originalFont);
 	}
 
 	private void renderProgressBar(Graphics2D graphics, LocalPoint localPoint, int ticks, int maxTicks, Color npcColor, int logicalHeight)
 	{
 		net.runelite.api.Point point = Perspective.getCanvasTextLocation(
-			client, graphics, localPoint, "", logicalHeight + Z_OFFSET_BAR);
+			client, graphics, localPoint, "", logicalHeight + config.progressBarZOffset());
 
 		if (point == null)
 		{
